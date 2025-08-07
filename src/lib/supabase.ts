@@ -53,6 +53,15 @@ export interface Summary {
   created_at: string;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
 export interface SimilarPaperRecord {
   id: string;
   paper_id: string;
@@ -155,6 +164,100 @@ export class SupabaseService {
       return null;
     }
 
+    return data;
+  }
+
+  // ------------------ Notifications ------------------
+  static async getNotifications(): Promise<Notification[]> {
+    if (!isSupabaseConfigured || !supabase) {
+      return [];
+    }
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) {
+      console.error('Error fetching notifications:', error);
+      return [];
+    }
+    return data || [];
+  }
+
+  static async saveNotification(notification: Omit<Notification, 'id' | 'created_at'>): Promise<Notification> {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error('Supabase is not configured. Please set up your environment variables.');
+    }
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([notification])
+      .select()
+      .single();
+    if (error) {
+      console.error('Error saving notification:', error);
+      throw new Error('Failed to save notification');
+    }
+    return data;
+  }
+
+  static async markNotificationRead(notificationId: string): Promise<void> {
+    if (!isSupabaseConfigured || !supabase) return;
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId);
+    if (error) console.error('Error marking notification as read:', error);
+  }
+
+  // ------------------ Similar Papers ------------------
+  static async saveSimilarPapers(record: Omit<SimilarPaperRecord, 'id' | 'created_at'>): Promise<SimilarPaperRecord> {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error('Supabase is not configured. Please set up your environment variables.');
+    }
+    const { data, error } = await supabase
+      .from('similar_papers')
+      .insert([record])
+      .select()
+      .single();
+    if (error) {
+      console.error('Error saving similar papers record:', error);
+      throw new Error('Failed to save similar papers record');
+    }
+    return data;
+  }
+
+  static async getSimilarPapers(paperId: string): Promise<SimilarPaperRecord | null> {
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { data, error } = await supabase
+      .from('similar_papers')
+      .select('*')
+      .eq('paper_id', paperId)
+      .single();
+    if (error) return null;
+    return data;
+  }
+
+  // ------------------ Code Generations ------------------
+  static async saveCodeGeneration(record: any): Promise<any> {
+    if (!isSupabaseConfigured || !supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase
+      .from('code_generations')
+      .insert([record])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // ------------------ Visualizations ------------------
+  static async saveVisualization(record: any): Promise<any> {
+    if (!isSupabaseConfigured || !supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase
+      .from('visualizations')
+      .insert([record])
+      .select()
+      .single();
+    if (error) throw error;
     return data;
   }
 }

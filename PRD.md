@@ -392,6 +392,53 @@ CREATE TABLE visualizations (
 
 ## Deployment and DevOps
 
+---
+
+## Latest Application Status (as of 2025-08-07)
+
+### What ScoutResearchAI Can Do
+- Upload, analyze, and summarize research papers with Google Gemini AI
+- Generate age-appropriate, educational summaries and interactive learning elements
+- Discover similar research, filter and compare papers, and visualize key insights
+- Generate production-quality code from research findings in multiple languages
+- Automated and interactive visualizations for presentations and exploration
+- Real-time notifications via Supabase
+
+### Security Checklist
+- All API keys and credentials must be stored in `.env.local` (never committed)
+- `.env` and `.env.local` are in `.gitignore` (see repo)
+- Supabase Row-Level Security (RLS) is enabled on all tables
+- User authentication enforced for all data access
+- Data encrypted in transit and at rest (Supabase default)
+- File uploads validated for type and size
+
+### Tables to Create in Supabase
+- research_papers
+- summaries
+- similar_papers
+- code_generations
+- visualizations
+- notifications
+
+See the schema SQL blocks above and apply all RLS policies as shown for each table.
+
+### Developer/Deployment Steps
+1. Clone repo and run `npm install`
+2. Copy `.env.local.example` to `.env.local` and set your Supabase and Gemini API keys
+3. Ensure Node.js >= 20 is installed
+4. Run `npm run dev` to start the app
+5. (Optional) Run `npm run test` to execute automated tests (requires Node >= 20)
+
+### Pending Items
+- Full end-to-end test coverage (see `tests/` and `docs/api-mapping.md`)
+- CI pipeline for automated lint/test/deploy
+- Advanced search (server-side filtering/FTS)
+- UI/UX onboarding, docs, and help center
+- Node.js upgrade on all dev/prod systems
+
+For any future improvements, see the plan in `docs/api-mapping.md` and the PRD above.
+---
+
 ### Development Workflow
 - **Version Control**: Git with feature branch workflow
 - **CI/CD**: Automated testing and deployment

@@ -4,7 +4,7 @@ import {
   TrendingUp, Clock, FileText, Users, ArrowRight, Zap, Bell, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { SupabaseService } from '../lib/supabase';
+import { SupabaseService, Notification } from '../lib/supabase';
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
@@ -13,7 +13,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, uploadedPapers }) => {
   const { user, profile } = useAuth();
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   useEffect(() => {
@@ -24,19 +24,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, uploadedPapers
 
   const loadNotifications = async () => {
     if (!user) return;
-    
+
     setIsLoadingNotifications(true);
-    
+
     try {
-      // In a real implementation, this would fetch from the database
-      // For now, we'll use mock data
-      const mockNotifications = [
-        { id: 1, title: 'Analysis Complete', message: 'Your paper "Deep Learning in Medical Imaging" has been analyzed', time: '2 hours ago', read: false },
-        { id: 2, title: 'New Feature Available', message: 'Try our new citation network visualization tool', time: '1 day ago', read: true },
-        { id: 3, title: 'Weekly Summary', message: 'View your research activity summary for this week', time: '3 days ago', read: true }
-      ];
-      
-      setNotifications(mockNotifications);
+      const data = await SupabaseService.getNotifications();
+      setNotifications(data);
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {
@@ -208,7 +201,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, uploadedPapers
                   <Bell className="w-5 h-5 text-slate-600" />
                   <span className="font-medium text-slate-900">Recent Updates</span>
                 </div>
-                <button className="text-sm text-blue-600 hover:text-blue-800">
+                <button onClick={markAllAsRead} className="text-sm text-blue-600 hover:text-blue-800">
                   Mark all as read
                 </button>
               </div>
@@ -233,7 +226,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, uploadedPapers
                         <h4 className={`font-medium ${notification.read ? 'text-slate-900' : 'text-blue-700'}`}>
                           {notification.title}
                         </h4>
-                        <span className="text-xs text-slate-500">{notification.time}</span>
+                        <span className="text-xs text-slate-500">{formatTime(notification.created_at)}</span>
                       </div>
                       <p className="text-sm text-slate-600 mb-2">{notification.message}</p>
                       <button className="text-xs text-blue-600 hover:text-blue-800">
