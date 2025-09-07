@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS similar_papers (
   created_at timestamptz DEFAULT now()
 );
 
--- Create generated_code table
-CREATE TABLE IF NOT EXISTS generated_code (
+-- Create code_generations table
+CREATE TABLE IF NOT EXISTS code_generations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   paper_id uuid REFERENCES research_papers(id) ON DELETE CASCADE,
   user_id uuid REFERENCES auth.users(id),
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS visualizations (
 ALTER TABLE research_papers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE summaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE similar_papers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE generated_code ENABLE ROW LEVEL SECURITY;
+ALTER TABLE code_generations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visualizations ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist to avoid conflicts
@@ -75,10 +75,10 @@ DROP POLICY IF EXISTS "Users can insert own similar papers" ON similar_papers;
 DROP POLICY IF EXISTS "Users can update own similar papers" ON similar_papers;
 DROP POLICY IF EXISTS "Users can delete own similar papers" ON similar_papers;
 
-DROP POLICY IF EXISTS "Users can view own generated code" ON generated_code;
-DROP POLICY IF EXISTS "Users can insert own generated code" ON generated_code;
-DROP POLICY IF EXISTS "Users can update own generated code" ON generated_code;
-DROP POLICY IF EXISTS "Users can delete own generated code" ON generated_code;
+DROP POLICY IF EXISTS "Users can view own generated code" ON code_generations;
+DROP POLICY IF EXISTS "Users can insert own generated code" ON code_generations;
+DROP POLICY IF EXISTS "Users can update own generated code" ON code_generations;
+DROP POLICY IF EXISTS "Users can delete own generated code" ON code_generations;
 
 DROP POLICY IF EXISTS "Users can view own visualizations" ON visualizations;
 DROP POLICY IF EXISTS "Users can insert own visualizations" ON visualizations;
@@ -124,17 +124,17 @@ CREATE POLICY "Users can update own similar papers" ON similar_papers
 CREATE POLICY "Users can delete own similar papers" ON similar_papers
   FOR DELETE USING (auth.uid() = user_id);
 
--- Create policies for generated_code
-CREATE POLICY "Users can view own generated code" ON generated_code
+-- Create policies for code_generations
+CREATE POLICY "Users can view own generated code" ON code_generations
   FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own generated code" ON generated_code
+CREATE POLICY "Users can insert own generated code" ON code_generations
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own generated code" ON generated_code
+CREATE POLICY "Users can update own generated code" ON code_generations
   FOR UPDATE USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete own generated code" ON generated_code
+CREATE POLICY "Users can delete own generated code" ON code_generations
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Create policies for visualizations
@@ -156,7 +156,7 @@ CREATE INDEX IF NOT EXISTS idx_research_papers_created_at ON research_papers(cre
 CREATE INDEX IF NOT EXISTS idx_summaries_paper_id ON summaries(paper_id);
 CREATE INDEX IF NOT EXISTS idx_summaries_user_id ON summaries(user_id);
 CREATE INDEX IF NOT EXISTS idx_similar_papers_paper_id ON similar_papers(paper_id);
-CREATE INDEX IF NOT EXISTS idx_generated_code_paper_id ON generated_code(paper_id);
+CREATE INDEX IF NOT EXISTS idx_code_generations_paper_id ON code_generations(paper_id);
 CREATE INDEX IF NOT EXISTS idx_visualizations_paper_id ON visualizations(paper_id);
 
 -- Create updated_at trigger function

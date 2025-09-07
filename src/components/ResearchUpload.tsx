@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Brain, BarChart3, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { GeminiService, ResearchAnalysis } from '../lib/gemini';
-import { LocalStorageService } from '../lib/localStorageService';
+import { SupabaseService } from '../lib/supabase';
 import { FileProcessor } from '../lib/fileProcessor';
 import { FileUploader } from './FileUploader';
 
@@ -49,10 +49,11 @@ export const ResearchUpload: React.FC<ResearchUploadProps> = ({ onPaperUploaded,
       const analysis = await GeminiService.analyzeResearchPaper(extractedText, file.name);
       setProgress(75);
       try {
-        const savedPaper = LocalStorageService.savePaper({
+        const savedPaper = await SupabaseService.savePaper({
           title: analysis.paper_metadata.title,
           content: extractedText,
           filename: file.name,
+          file_size: file.size,
           analysis: analysis
         });
         setProgress(100);
@@ -61,7 +62,8 @@ export const ResearchUpload: React.FC<ResearchUploadProps> = ({ onPaperUploaded,
           id: savedPaper.id,
           file,
           analysis,
-          uploadDate: savedPaper.uploadDate,
+          created_at: savedPaper.created_at,
+          updated_at: savedPaper.updated_at,
           content: extractedText
         };
         onPaperUploaded(paperData);
@@ -71,7 +73,8 @@ export const ResearchUpload: React.FC<ResearchUploadProps> = ({ onPaperUploaded,
           }
         }, 1000);
       } catch (dbErr) {
-        setError('Analysis complete, but failed to save paper locally.');
+        console.error('Failed to save paper to database:', dbErr);
+        setError('Analysis complete, but failed to save paper to database. Please check your connection and try again.');
         setAnalysisResults(analysis);
       }
     } catch (err) {
