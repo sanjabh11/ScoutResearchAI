@@ -1,0 +1,99 @@
+[
+  {
+    "task_id": "PBI-0001-T01",
+    "title": "Export supabase and isSupabaseConfigured",
+    "type": "code",
+    "status": "InProgress",
+    "files": ["src/lib/supabase.ts"],
+    "test_plan": {"steps": ["Type check project", "App boot smoke test"], "criteria": ["No TS error for imports"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T02",
+    "title": "Gemini lazy init and graceful errors",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/lib/gemini.ts"],
+    "test_plan": {"steps": ["Run app without API key", "Trigger AI features"], "criteria": ["No crash", "Friendly error message"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T03",
+    "title": "DataStore orchestrator and LocalStorage extensions",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/lib/dataStore.ts", "src/lib/localStorageService.ts", "src/lib/constants.ts"],
+    "test_plan": {"steps": ["Save paper offline", "Reload app"], "criteria": ["Paper persists locally"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T04",
+    "title": "Wire Upload/Summarization to DataStore",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/App.tsx", "src/components/ResearchUpload.tsx", "src/components/SummarizationEngine.tsx"],
+    "test_plan": {"steps": ["Upload and summarize in guest mode"], "criteria": ["Data saved locally"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T05",
+    "title": "Guest/local auth mode",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/context/AuthContext.tsx", "src/components/AuthModal.tsx"],
+    "test_plan": {"steps": ["Continue as guest", "Sign out"], "criteria": ["Guest session present/cleared in localStorage"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T06",
+    "title": "Discovery local filters and similarity",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/components/ResearchDiscovery.tsx"],
+    "test_plan": {"steps": ["Search by query and filters"], "criteria": ["Results reflect filters and local scoring"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T07",
+    "title": "Persist code/visuals locally and implement downloads/gallery",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/components/CodeGenerator.tsx", "src/components/VisualizationStudio.tsx", "src/lib/localStorageService.ts"],
+    "test_plan": {"steps": ["Generate code/visual", "Reload app"], "criteria": ["Items listed and downloadable"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T08",
+    "title": "Local comparison analytics and citation edges",
+    "type": "code",
+    "status": "Proposed",
+    "files": ["src/components/ComparisonMatrix.tsx", "src/components/CitationNetwork.tsx"],
+    "test_plan": {"steps": ["Compare papers", "Generate citation network"], "criteria": ["Edges and metrics computed locally"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T09",
+    "title": "Unit tests for DataStore fallback and local flows",
+    "type": "test",
+    "status": "Proposed",
+    "files": ["tests/dataStore.test.ts"],
+    "test_plan": {"steps": ["Run vitest"], "criteria": ["New tests pass"]},
+    "status_history": []
+  },
+  {
+    "task_id": "PBI-0001-T10",
+    "title": "Handle password-protected PDFs (FileProcessor + ResearchUpload)",
+    "type": "code",
+    "status": "InProgress",
+    "files": ["src/lib/fileProcessor.ts", "src/components/ResearchUpload.tsx"],
+    "test_plan": {
+      "steps": [
+        "Upload a password-protected PDF",
+        "Enter correct password when prompted",
+        "Verify extraction succeeds and analysis proceeds"
+      ],
+      "criteria": ["Password prompt shown", "Correct password unlocks and extracts text", "Wrong password shows friendly error and reprompt"]
+    },
+    "status_history": []
+  }
+]

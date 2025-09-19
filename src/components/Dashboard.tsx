@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Upload, Brain, BarChart3, Search, Code, GitCompare, Network, 
-  TrendingUp, Clock, FileText, Users, ArrowRight, Zap, Bell, Loader2
+  Upload, Brain, BarChart3, Search, Code, GitCompare, 
+  TrendingUp, Clock, FileText, ArrowRight, Bell, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SupabaseService, Notification } from '../lib/supabase';
@@ -35,6 +35,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, uploadedPapers
     } finally {
       setIsLoadingNotifications(false);
     }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      // Optimistically update UI
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      // Attempt to persist via Supabase if available
+      for (const n of notifications) {
+        if (!n.read) {
+          await SupabaseService.markNotificationRead(n.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
   };
 
   const quickActions = [

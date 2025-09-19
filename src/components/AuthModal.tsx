@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { STORAGE_KEYS } from '../lib/constants';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -93,6 +94,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const switchMode = () => {
     setIsLogin(!isLogin);
     resetForm();
+  };
+
+  const continueAsGuest = () => {
+    try {
+      const id = `guest_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+      const session = { userId: id, displayName: 'Guest', createdAt: new Date().toISOString(), mode: 'guest' };
+      localStorage.setItem(STORAGE_KEYS.GUEST_SESSION, JSON.stringify(session));
+      onAuthSuccess();
+      onClose();
+    } catch (e) {
+      setError('Unable to start guest session. Please try again.');
+    }
   };
 
   return (
@@ -205,6 +218,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             </button>
           </div>
         </form>
+        <div className="px-6 pb-6">
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200"></span>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-slate-500">or</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={continueAsGuest}
+            className="w-full border border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-semibold hover:bg-slate-50 transition-all duration-200"
+          >
+            Continue as Guest
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Users, Lightbulb, BookOpen, Target, Zap, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { GeminiService, AgeSummary } from '../lib/gemini';
-import { SupabaseService } from '../lib/supabase';
+import { DataStore } from '../lib/dataStore';
 
 interface SummarizationEngineProps {
   papers: any[];
@@ -34,10 +34,10 @@ export const SummarizationEngine: React.FC<SummarizationEngineProps> = ({ papers
     setError(null);
     
     try {
-      // Check if summary already exists
-      const existingSummary = await SupabaseService.getSummary(selectedPaper.id, selectedAge);
+      // Check if summary already exists (local-first)
+      const existingSummary = await DataStore.getSummary(selectedPaper.id, selectedAge);
       if (existingSummary) {
-        setSummary(existingSummary.content);
+        setSummary(existingSummary);
         setIsGenerating(false);
         return;
       }
@@ -54,18 +54,7 @@ export const SummarizationEngine: React.FC<SummarizationEngineProps> = ({ papers
         return;
       }
       // Save summary
-      const userId = await SupabaseService.getCurrentUserId();
-      if (!userId) {
-        setError('User not authenticated. Please sign in to save summaries.');
-        setIsGenerating(false);
-        return;
-      }
-      await SupabaseService.saveSummary({
-        paper_id: selectedPaper.id,
-        user_id: userId,
-        target_age: selectedAge,
-        content: generatedSummary
-      });
+      await DataStore.saveSummary(selectedPaper.id, selectedAge, generatedSummary);
       setSummary(generatedSummary);
     } catch (err) {
       console.error('Error generating summary:', err);

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AuthService, User, Profile } from '../lib/auth';
+import { STORAGE_KEYS } from '../lib/constants';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -34,6 +36,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkUser = async () => {
       if (!isSupabaseConfigured || !supabase) {
+        // Load guest session if present
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.GUEST_SESSION);
+          if (raw) {
+            const session = JSON.parse(raw);
+            const guestUser: User = {
+              id: session.userId,
+              email: 'guest@local',
+              user_metadata: { full_name: session.displayName || 'Guest' }
+            } as any;
+            setUser(guestUser);
+            setProfile({
+              id: session.userId,
+              email: 'guest@local',
+              full_name: session.displayName || 'Guest',
+              avatar_url: null,
+              subscription_tier: 'free',
+              api_credits: 0,
+              papers_count: 0,
+              summaries_count: 0,
+              visualizations_count: 0,
+              code_generations_count: 0,
+            });
+          }
+        } catch {}
         setIsLoading(false);
         return;
       }
@@ -58,13 +85,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Set up auth state change listener
     if (isSupabaseConfigured && supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          setUser(session?.user || null);
-          
+        async (_event: AuthChangeEvent, session: Session | null) => {
           if (session?.user) {
+            const mapped: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              user_metadata: { full_name: (session.user.user_metadata as any)?.full_name }
+            } as any;
+            setUser(mapped);
             const userProfile = await AuthService.getProfile(session.user.id);
             setProfile(userProfile);
           } else {
+            setUser(null);
             setProfile(null);
           }
         }
@@ -102,7 +134,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
-      await AuthService.signOut();
+      if (isSupabaseConfigured && supabase) {
+        await AuthService.signOut();
+      } else {
+        // Clear guest session
+        localStorage.removeItem(STORAGE_KEYS.GUEST_SESSION);
+      }
       setUser(null);
       setProfile(null);
     } catch (error) {

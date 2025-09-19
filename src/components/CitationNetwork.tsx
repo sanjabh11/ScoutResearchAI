@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Network, Search, Filter, Zap, Users, BookOpen, TrendingUp } from 'lucide-react';
-import { SupabaseService } from '../lib/supabase';
+import { Network, Search, Filter, Users, BookOpen, TrendingUp } from 'lucide-react';
+import { DataStore } from '../lib/dataStore';
 
 export const CitationNetwork: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -9,12 +9,24 @@ export const CitationNetwork: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'citations' | 'collaborations' | 'topics'>('citations');
 
+  const tokenize = (text: string) => (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const jaccard = (a: Set<string>, b: Set<string>) => {
+    const inter = new Set([...a].filter(x => b.has(x))).size;
+    const union = new Set([...a, ...b]).size;
+    return union === 0 ? 0 : inter / union;
+  };
+
   const generateNetwork = async () => {
     setIsLoading(true);
-    // Fetch research papers and similar_papers from Supabase
-    const papers = await SupabaseService.getPapers();
+    // Fetch research papers (local-first)
+    const papers = await DataStore.getPapers();
     // TODO: Fetch similar_papers and build edges
-    // For now, just create nodes from papers
+    // Create nodes from papers
     const nodes = papers.map((paper, idx) => ({
       id: paper.id,
       title: paper.title || paper.analysis?.paper_metadata?.title,
@@ -27,16 +39,35 @@ export const CitationNetwork: React.FC = () => {
       y: 200 + idx * 50,
       size: 16
     }));
-    // Edges and communities can be built from similar_papers table if needed
+    // Build edges via token similarity
+    const edges: any[] = [];
+    for (let i = 0; i < papers.length; i++) {
+      const pa = papers[i];
+      const ta = (pa.title || pa.analysis?.paper_metadata?.title || '') + ' ' + (pa.analysis?.key_methodologies || []).join(' ');
+      const sa = new Set(tokenize(ta));
+      for (let j = i + 1; j < papers.length; j++) {
+        const pb = papers[j];
+        const tb = (pb.title || pb.analysis?.paper_metadata?.title || '') + ' ' + (pb.analysis?.key_methodologies || []).join(' ');
+        const sb = new Set(tokenize(tb));
+        const sim = jaccard(sa, sb);
+        if (sim >= 0.25) {
+          edges.push({ source: pa.id, target: pb.id, strength: sim });
+        }
+      }
+    }
+
+    const maxPossibleEdges = (nodes.length * (nodes.length - 1)) / 2;
+    const density = maxPossibleEdges > 0 ? Number((edges.length / maxPossibleEdges).toFixed(2)) : 0;
+
     setNetworkData({
       nodes,
-      edges: [],
+      edges,
       communities: [],
       metrics: {
         total_papers: nodes.length,
         total_citations: nodes.reduce((sum, n) => sum + (n.citations || 0), 0),
         avg_influence: nodes.length ? (nodes.reduce((sum, n) => sum + (n.influence_score || 0), 0) / nodes.length) : 0,
-        network_density: 0
+        network_density: density
       }
     });
     setIsLoading(false);

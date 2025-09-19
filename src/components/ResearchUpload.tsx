@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Brain, BarChart3, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { GeminiService, ResearchAnalysis } from '../lib/gemini';
-import { SupabaseService } from '../lib/supabase';
+import { DataStore } from '../lib/dataStore';
 import { FileProcessor } from '../lib/fileProcessor';
 import { FileUploader } from './FileUploader';
 
@@ -40,16 +40,51 @@ export const ResearchUpload: React.FC<ResearchUploadProps> = ({ onPaperUploaded,
       let extractedText = '';
       try {
         extractedText = await FileProcessor.extractTextFromPDF(file);
-      } catch (extractErr) {
-        setIsAnalyzing(false);
-        setError('Failed to extract text from PDF. Please ensure the file is a valid PDF and try again.');
-        return;
+      } catch (extractErr: any) {
+        // Handle password-protected PDFs by prompting the user and retrying
+        if (extractErr?.code === 'PDF_PASSWORD_REQUIRED' || extractErr?.code === 'PDF_PASSWORD_INCORRECT') {
+          let attempts = 0;
+          let success = false;
+          while (attempts < 3 && !success) {
+            const promptMsg = attempts === 0
+              ? 'This PDF is password-protected. Please enter the password to continue:'
+              : 'Incorrect password. Please try again:';
+            const pwd = window.prompt(promptMsg);
+            if (!pwd) {
+              setError('PDF extraction cancelled. A password is required to open this document.');
+              setIsAnalyzing(false);
+              return;
+            }
+            try {
+              extractedText = await FileProcessor.extractTextFromPDF(file, pwd);
+              success = true;
+            } catch (e: any) {
+              if (e?.code === 'PDF_PASSWORD_INCORRECT' || e?.code === 'PDF_PASSWORD_REQUIRED') {
+                attempts += 1;
+                continue;
+              }
+              // Other errors
+              setError('Failed to extract text from PDF. Please verify the file and try again.');
+              setIsAnalyzing(false);
+              return;
+            }
+          }
+          if (!success) {
+            setError('Failed to open PDF after multiple password attempts.');
+            setIsAnalyzing(false);
+            return;
+          }
+        } else {
+          setIsAnalyzing(false);
+          setError('Failed to extract text from PDF. Please ensure the file is a valid PDF and try again.');
+          return;
+        }
       }
       setProgress(50);
       const analysis = await GeminiService.analyzeResearchPaper(extractedText, file.name);
       setProgress(75);
       try {
-        const savedPaper = await SupabaseService.savePaper({
+        const savedPaper = await DataStore.savePaper({
           title: analysis.paper_metadata.title,
           content: extractedText,
           filename: file.name,
@@ -73,8 +108,8 @@ export const ResearchUpload: React.FC<ResearchUploadProps> = ({ onPaperUploaded,
           }
         }, 1000);
       } catch (dbErr) {
-        console.error('Failed to save paper to database:', dbErr);
-        setError('Analysis complete, but failed to save paper to database. Please check your connection and try again.');
+        console.error('Failed to save paper:', dbErr);
+        setError('Analysis complete, but failed to save paper. Please try again or use guest mode.');
         setAnalysisResults(analysis);
       }
     } catch (err) {

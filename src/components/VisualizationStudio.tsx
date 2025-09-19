@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { BarChart3, PieChart, TrendingUp, Network, Image, Play, Palette, Download, Loader2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BarChart3, TrendingUp, Network, Image, Play, Palette, Download, Loader2 } from 'lucide-react';
 import { GeminiService } from '../lib/gemini';
+import { DataStore } from '../lib/dataStore';
 
 interface VisualizationStudioProps {
   papers: any[];
@@ -12,6 +13,7 @@ export const VisualizationStudio: React.FC<VisualizationStudioProps> = ({ papers
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVisual, setGeneratedVisual] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gallery, setGallery] = useState<any[]>([]);
 
   const visualizationTypes = [
     {
@@ -60,12 +62,38 @@ export const VisualizationStudio: React.FC<VisualizationStudioProps> = ({ papers
       
       const visual = await GeminiService.generateVisualization(content, selectedVisualization, analysis);
       setGeneratedVisual(visual);
+      await DataStore.saveVisualization(selectedPaper.id, {
+        visualization_type: selectedVisualization,
+        config: visual,
+      });
+      // refresh gallery
+      const items = await DataStore.getVisualizations(selectedPaper.id);
+      setGallery(items);
     } catch (err) {
       console.error('Visualization generation error:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate visualization');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      if (!selectedPaper) return;
+      const items = await DataStore.getVisualizations(selectedPaper.id);
+      setGallery(items);
+    };
+    load();
+  }, [selectedPaper]);
+
+  const downloadJSON = (filename: string, obj: any) => {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const renderGeneratedVisualization = () => {
@@ -204,7 +232,10 @@ export const VisualizationStudio: React.FC<VisualizationStudioProps> = ({ papers
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
                 <h2 className="text-xl md:text-2xl font-bold text-slate-900">Live Preview</h2>
                 <div className="flex items-center space-x-3 mt-4 md:mt-0">
-                  <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200">
+                  <button
+                    onClick={() => generatedVisual && downloadJSON(`${selectedVisualization}-visual.json`, generatedVisual)}
+                    className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200"
+                  >
                     <Download className="w-5 h-5" />
                   </button>
                   <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors duration-200 text-sm font-medium">
@@ -240,17 +271,29 @@ export const VisualizationStudio: React.FC<VisualizationStudioProps> = ({ papers
             {/* Visualization Gallery */}
             <div className="mt-8">
               <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-4">Recent Visualizations</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer">
-                    <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg mb-3 flex items-center justify-center">
-                      <Image className="w-8 h-8 text-slate-400" />
+              {gallery.length === 0 ? (
+                <div className="text-slate-600 text-sm">No visualizations yet</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {gallery.map((item) => (
+                    <div key={item.id} className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer">
+                      <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg mb-3 flex items-center justify-center">
+                        <Image className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <h4 className="font-medium text-slate-900 text-sm mb-1">{item.visualization_type}</h4>
+                      <p className="text-xs text-slate-600">{new Date(item.createdAt || item.created_at || Date.now()).toLocaleString()}</p>
+                      <div className="mt-2">
+                        <button
+                          onClick={() => downloadJSON(`${item.visualization_type}-${item.id}.json`, item.config || item)}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Download JSON
+                        </button>
+                      </div>
                     </div>
-                    <h4 className="font-medium text-slate-900 text-sm mb-1">Research Visualization {item}</h4>
-                    <p className="text-xs text-slate-600">Created 2 hours ago</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

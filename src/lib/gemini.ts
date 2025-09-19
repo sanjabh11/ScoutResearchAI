@@ -1,24 +1,30 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// Lazy-initialize the Gemini model so the app doesn't crash without an API key
+let _genAI: GoogleGenerativeAI | null = null;
+const GEMINI_MODEL_NAME = "models/gemini-1.5-flash";
+const DEFAULT_GENERATION_CONFIG = {
+  temperature: 0.7,
+  topP: 0.8,
+  topK: 40,
+  maxOutputTokens: 4096,
+};
 
-if (!API_KEY) {
-  throw new Error('VITE_GEMINI_API_KEY is not set in environment variables');
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY);
-
-// Use gemini-1.5-flash instead of pro for better quota limits
-// Use the latest available Gemini model name. If this fails, try 'gemini-1.0-pro' or check Google API docs for updates.
-export const geminiModel = genAI.getGenerativeModel({ 
-  model: "models/gemini-1.5-flash", // <-- update to full model name per Gemini API
-  generationConfig: {
-    temperature: 0.7,
-    topP: 0.8,
-    topK: 40,
-    maxOutputTokens: 4096, // Reduced for flash model
+function getModel() {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Gemini API key (VITE_GEMINI_API_KEY) is not configured. You can continue using local features or add the key in .env.local.'
+    );
   }
-});
+  if (!_genAI) {
+    _genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return _genAI.getGenerativeModel({
+    model: GEMINI_MODEL_NAME,
+    generationConfig: DEFAULT_GENERATION_CONFIG,
+  });
+}
 
 export interface ResearchAnalysis {
   complexity_score: number;
@@ -85,7 +91,8 @@ async function callGeminiWithRetry(prompt: string, maxRetries = 2): Promise<stri
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await geminiModel.generateContent(prompt);
+      const model = getModel();
+      const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
     } catch (error: any) {

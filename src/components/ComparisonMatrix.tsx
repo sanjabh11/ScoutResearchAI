@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { GitCompare, BarChart3, TrendingUp, Users, Calendar, Award, Filter } from 'lucide-react';
-import { SupabaseService, ResearchPaper } from '../lib/supabase';
+import { GitCompare, BarChart3, TrendingUp, Award, Filter } from 'lucide-react';
+import { ResearchPaper } from '../lib/supabase';
+import { DataStore } from '../lib/dataStore';
 
 interface ComparisonMatrixProps {
   papers?: ResearchPaper[];
@@ -16,8 +17,8 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ papers = [] 
   useEffect(() => {
     const fetchPapers = async () => {
       setLoading(true);
-      const supabasePapers = await SupabaseService.getPapers();
-      setAllPapers(supabasePapers);
+      const localPapers = await DataStore.getPapers();
+      setAllPapers(localPapers);
       setLoading(false);
     };
     fetchPapers();
@@ -25,16 +26,79 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ papers = [] 
 
   const generateComparison = async () => {
     setIsComparing(true);
-    // TODO: Implement real comparison logic based on selectedPapers
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setComparisonResults({
-      methodology_comparison: {},
-      performance_metrics: {},
-      key_similarities: [],
-      key_differences: [],
-      synthesis_opportunities: {}
-    });
-    setIsComparing(false);
+    try {
+      // Prepare: ensure methodology present for display
+      const prepared = selectedPapers.map((p) => {
+        const firstMethod = (p.analysis?.key_methodologies || [])[0];
+        return {
+          ...p,
+          analysis: {
+            ...p.analysis,
+            methodology: p.analysis?.methodology || firstMethod || 'Experimental'
+          }
+        } as ResearchPaper;
+      });
+      setSelectedPapers(prepared);
+
+      const citations: number[] = prepared.map((p: any) => Number(p.analysis?.paper_metadata?.estimated_citations || 0));
+      const confidences: number[] = prepared.map((p: any) => Number((p.analysis?.analysis_confidence || 0) * 100));
+      const qualities: number[] = prepared.map((p: any) => {
+        const q = (p.analysis?.paper_metadata?.research_quality || '').toLowerCase();
+        if (q.includes('high')) return 90;
+        if (q.includes('medium')) return 75;
+        if (q.includes('low')) return 60;
+        return Math.round((p.analysis?.analysis_confidence || 0.7) * 100);
+      });
+
+      const minMax = (arr: number[]) => ({
+        min: Math.min(...arr),
+        max: Math.max(...arr)
+      });
+
+      const cRange = minMax(citations);
+      const confRange = minMax(confidences);
+      const qRange = minMax(qualities);
+
+      // Similarities / differences (heuristics)
+      const domains = prepared.map((p: any) => p.analysis?.domain_primary).filter(Boolean);
+      const allSameDomain = domains.length > 0 && domains.every((d: any) => d === domains[0]);
+      const methodSets = prepared.map((p: any) => new Set((p.analysis?.key_methodologies || []).map((m: string) => m.toLowerCase())));
+      const commonMethods = methodSets.reduce((acc: Set<string> | null, s) => acc ? new Set([...acc].filter(x => s.has(x))) : new Set(s), null as any) as Set<string> | null;
+
+      const key_similarities: string[] = [];
+      if (allSameDomain) key_similarities.push(`Common primary domain: ${domains[0]}`);
+      if (commonMethods && commonMethods.size > 0) key_similarities.push(`Shared methodologies: ${[...commonMethods].join(', ')}`);
+
+      const key_differences: string[] = [];
+      if (!allSameDomain) key_differences.push('Different primary domains across papers');
+      // differences in complexity
+      const complexities = prepared.map((p: any) => p.analysis?.complexity_score || 0);
+      const cx = minMax(complexities);
+      if (cx.max - cx.min >= 2) key_differences.push(`Complexity scores vary (${cx.min}–${cx.max})`);
+
+      const synthesis = {
+        meta_analysis_feasible: allSameDomain && !!(commonMethods && commonMethods.size > 0),
+        common_datasets: [] as string[],
+        research_gaps: [] as string[]
+      };
+      if (!synthesis.meta_analysis_feasible) {
+        synthesis.research_gaps.push('Align methodologies or domains for meta-analysis');
+      }
+
+      setComparisonResults({
+        methodology_comparison: {},
+        performance_metrics: {
+          accuracy_range: `${Math.round(confRange.min)}% – ${Math.round(confRange.max)}% (confidence proxy)`,
+          citation_range: `${cRange.min} – ${cRange.max}`,
+          quality_range: `${qRange.min} – ${qRange.max}`
+        },
+        key_similarities,
+        key_differences,
+        synthesis_opportunities: synthesis
+      });
+    } finally {
+      setIsComparing(false);
+    }
   };
 
   const togglePaperSelection = (paper: ResearchPaper) => {

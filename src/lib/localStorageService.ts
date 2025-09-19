@@ -47,4 +47,41 @@ export class LocalStorageService {
     localStorage.setItem(`summaries_${summary.paperId}`, JSON.stringify(summaries));
     return newSummary;
   }
+ 
+  // ---- Additional helpers for papers ----
+  static getPaperById(paperId: string): LocalResearchPaper | null {
+    return this.getPapers().find(p => p.id === paperId) || null;
+  }
+ 
+  // ---- Code generation persistence ----
+  static getCode(paperId: string): any[] {
+    const data = localStorage.getItem(`code_${paperId}`);
+    return data ? JSON.parse(data) : [];
+  }
+ 
+  static saveCode(paperId: string, record: any): any {
+    const list = this.getCode(paperId);
+    const id = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const createdAt = new Date().toISOString();
+    const newRec = { id, paperId, createdAt, ...record };
+    list.unshift(newRec);
+    localStorage.setItem(`code_${paperId}`, JSON.stringify(list));
+    return newRec;
+  }
+ 
+  // ---- Visualization persistence ----
+  static getVisualizations(paperId: string): any[] {
+    const data = localStorage.getItem(`visualizations_${paperId}`);
+    return data ? JSON.parse(data) : [];
+  }
+ 
+  static saveVisualization(paperId: string, record: any): any {
+    const list = this.getVisualizations(paperId);
+    const id = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const createdAt = new Date().toISOString();
+    const newRec = { id, paperId, createdAt, ...record };
+    list.unshift(newRec);
+    localStorage.setItem(`visualizations_${paperId}`, JSON.stringify(list));
+    return newRec;
+  }
 }

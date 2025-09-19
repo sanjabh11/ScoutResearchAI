@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
 import { Dashboard } from './components/Dashboard';
@@ -11,9 +11,8 @@ import { ComparisonMatrix } from './components/ComparisonMatrix';
 import { CitationNetwork } from './components/CitationNetwork';
 import { ContinueFeatures } from './components/ContinueFeatures';
 import { Footer } from './components/Footer';
-import { SupabaseService } from './lib/supabase';
+import { DataStore } from './lib/dataStore';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Loader2 } from 'lucide-react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export type ViewType = 'home' | 'dashboard' | 'upload' | 'summarize' | 'visualize' | 'discover' | 'code' | 'compare' | 'network' | 'continue';
@@ -88,7 +87,7 @@ function App() {
 
   const loadPapers = async () => {
     try {
-      const papers = await SupabaseService.getPapers();
+      const papers = await DataStore.getPapers();
       setUploadedPapers(papers);
     } catch (error) {
       console.error('Error loading papers:', error);
@@ -142,7 +141,7 @@ function App() {
       case 'home':
         return <Hero onGetStarted={() => setCurrentView('dashboard')} />;
       case 'dashboard':
-        return <Dashboard onNavigate={(view: ViewType) => setCurrentView(view)} uploadedPapers={uploadedPapers} />;
+        return <Dashboard onNavigate={(view: string) => setCurrentView(view as ViewType)} uploadedPapers={uploadedPapers} />;
       case 'upload':
         return <ResearchUpload onPaperUploaded={handlePaperUploaded} />;
       case 'summarize':

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Search, BookOpen, TrendingUp, Users, ExternalLink, Star, Calendar, Filter, Loader2 } from 'lucide-react';
-import { SupabaseService, ResearchPaper } from '../lib/supabase';
+import { Search, BookOpen, Users, ExternalLink, Star, Calendar, Loader2 } from 'lucide-react';
+import { ResearchPaper } from '../lib/supabase';
+import { DataStore } from '../lib/dataStore';
+
 import { SearchFilters } from './SearchFilters';
 
 interface ResearchDiscoveryProps {
@@ -19,20 +21,120 @@ export const ResearchDiscovery: React.FC<ResearchDiscoveryProps> = ({ papers = [
   });
   const [error, setError] = useState<string | null>(null);
 
+  const tokenize = (text: string) => (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const jaccard = (a: Set<string>, b: Set<string>) => {
+    const inter = new Set([...a].filter(x => b.has(x))).size;
+    const union = new Set([...a, ...b]).size;
+    return union === 0 ? 0 : inter / union;
+  };
+
+  const complexityBucket = (score?: number) => {
+    if (!score && score !== 0) return 'unknown';
+    if (score <= 3) return 'basic';
+    if (score <= 6) return 'intermediate';
+    if (score <= 8) return 'advanced';
+    return 'expert';
+  };
+
+  const withinDateRange = (createdAt?: string, range?: string) => {
+    if (!createdAt) return true;
+    const dt = new Date(createdAt).getTime();
+    const now = Date.now();
+    switch (range) {
+      case 'week': return (now - dt) <= 7 * 24 * 3600 * 1000;
+      case 'month': return (now - dt) <= 30 * 24 * 3600 * 1000;
+      case 'year': return (now - dt) <= 365 * 24 * 3600 * 1000;
+      default: return true;
+    }
+  };
+
   const performSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setError(null);
     try {
-      // Fetch all papers from Supabase
-      const allPapers = await SupabaseService.getPapers();
-      // Simple client-side filter by title/content
-      let filteredResults = allPapers.filter(paper =>
-        (paper.title && paper.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (paper.content && paper.content.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-      // TODO: Apply advanced filters as needed
-      setSearchResults(filteredResults);
+      // Fetch all papers local-first
+      const allPapers = await DataStore.getPapers();
+
+      const queryTokens = new Set(tokenize(searchQuery));
+
+      // Compute basic relevance by jaccard over title+content
+      const computed = allPapers.map((paper) => {
+        const title = paper.title || paper.analysis?.paper_metadata?.title || '';
+        const content = paper.content || '';
+        const tokens = new Set([...tokenize(title), ...tokenize(content)]);
+        const score = jaccard(tokens, queryTokens);
+        const domainPrimary = paper.analysis?.domain_primary;
+        const domainSecondary: string[] = paper.analysis?.domain_secondary || [];
+
+        return {
+          ...paper,
+          __similarity: score,
+          __domainMatch: domainPrimary && searchQuery.toLowerCase().includes(String(domainPrimary).toLowerCase()) ? 0.1 : 0,
+          __complexityBucket: complexityBucket(paper.analysis?.complexity_score)
+        } as any;
+      });
+
+      // Apply filters
+      let filtered = computed.filter((p: any) => {
+        // query relevance threshold
+        const relevant = p.__similarity > 0 || (p.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+        if (!relevant) return false;
+
+        // date range
+        if (!withinDateRange(p.created_at, selectedFilters.dateRange)) return false;
+
+        // complexity
+        if (selectedFilters.complexity?.length) {
+          if (!selectedFilters.complexity.includes(p.__complexityBucket)) return false;
+        }
+
+        // domains
+        if (selectedFilters.domains?.length) {
+          const primary = p.analysis?.domain_primary?.toLowerCase?.();
+          const secondaries = (p.analysis?.domain_secondary || []).map((d: string) => d.toLowerCase());
+          const wanted = new Set(selectedFilters.domains);
+          const match = (primary && wanted.has(primary.replace(/\s+/g, '_'))) || secondaries.some((d: string) => wanted.has(d.replace(/\s+/g, '_')));
+          if (!match) return false;
+        }
+
+        return true;
+      });
+
+      // Sort
+      switch (selectedFilters.sortBy) {
+        case 'date_desc':
+          filtered.sort((a: any, b: any) => (new Date(b.created_at).getTime()) - (new Date(a.created_at).getTime()));
+          break;
+        case 'date_asc':
+          filtered.sort((a: any, b: any) => (new Date(a.created_at).getTime()) - (new Date(b.created_at).getTime()));
+          break;
+        case 'complexity_asc':
+          filtered.sort((a: any, b: any) => (a.analysis?.complexity_score || 0) - (b.analysis?.complexity_score || 0));
+          break;
+        case 'complexity_desc':
+          filtered.sort((a: any, b: any) => (b.analysis?.complexity_score || 0) - (a.analysis?.complexity_score || 0));
+          break;
+        default:
+          // relevance
+          filtered.sort((a: any, b: any) => (b.__similarity + b.__domainMatch) - (a.__similarity + a.__domainMatch));
+      }
+
+      // Map similarity into analysis for display reuse
+      const results = filtered.map((p: any) => ({
+        ...p,
+        analysis: {
+          ...p.analysis,
+          similarity_score: Math.min(0.99, Math.max(0, (p.__similarity + p.__domainMatch)))
+        }
+      }));
+
+      setSearchResults(results);
     } catch (err) {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'Failed to search for papers');

@@ -389,3 +389,6 @@ export class SupabaseService {
     return data;
   }
 }
+
+// Export supabase client and configuration flag for consumers
+export { supabase, isSupabaseConfigured };

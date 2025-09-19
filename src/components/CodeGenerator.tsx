@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Code, Download, Copy, Play, FileText, Settings, Cpu, Zap, Loader2 } from 'lucide-react';
+import { Code, Download, Copy, Play, FileText, Zap, Loader2 } from 'lucide-react';
 import { GeminiService, CodeGeneration } from '../lib/gemini';
+import { DataStore } from '../lib/dataStore';
 
 interface CodeGeneratorProps {
   papers: any[];
@@ -55,6 +56,12 @@ export const CodeGenerator: React.FC<CodeGeneratorProps> = ({ papers }) => {
       
       const code = await GeminiService.generateCode(content, selectedLanguage, selectedFramework, analysis);
       setGeneratedCode(code);
+      // Persist locally (or Supabase if configured)
+      await DataStore.saveCodeGeneration(selectedPaper.id, {
+        language: selectedLanguage,
+        framework: selectedFramework,
+        code_content: code,
+      });
     } catch (err) {
       console.error('Code generation error:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate code');
@@ -65,6 +72,16 @@ export const CodeGenerator: React.FC<CodeGeneratorProps> = ({ papers }) => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const downloadText = (filename: string, text: string) => {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -214,7 +231,10 @@ export const CodeGenerator: React.FC<CodeGeneratorProps> = ({ papers }) => {
                         >
                           <Copy className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200">
+                        <button
+                          onClick={() => downloadText(`${selectedLanguage}-${selectedFramework}-impl.txt`, generatedCode.main_implementation)}
+                          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
                       </div>
@@ -240,7 +260,10 @@ export const CodeGenerator: React.FC<CodeGeneratorProps> = ({ papers }) => {
                         >
                           <Copy className="w-4 h-4" />
                         </button>
-                        <button className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm font-medium flex items-center space-x-1">
+                        <button
+                          onClick={() => downloadText(`${selectedLanguage}-${selectedFramework}-tests.txt`, generatedCode.test_suite)}
+                          className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm font-medium flex items-center space-x-1"
+                        >
                           <Play className="w-3 h-3" />
                           <span>Run Tests</span>
                         </button>
@@ -261,7 +284,10 @@ export const CodeGenerator: React.FC<CodeGeneratorProps> = ({ papers }) => {
                     <div className="flex flex-col md:flex-row md:items-center justify-between">
                       <h3 className="text-lg md:text-xl font-bold text-slate-900">Documentation</h3>
                       <div className="flex space-x-2 mt-4 md:mt-0">
-                        <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200">
+                        <button
+                          onClick={() => downloadText(`${selectedLanguage}-${selectedFramework}-docs.md`, generatedCode.documentation)}
+                          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200"
+                        >
                           <FileText className="w-4 h-4" />
                         </button>
                       </div>
